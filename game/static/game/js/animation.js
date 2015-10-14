@@ -39,12 +39,11 @@ identified as the original program.
 
 var ocargo = ocargo || {};
 
-ocargo.Animation = function(model, decor, numVans) {
+ocargo.Animation = function(model, decor) {
     this.model = model;
     this.decor = decor;
-    this.numVans = numVans;
 	this.activeCows = []; // cows currently displayed on map
-	this.effects = [];
+	this.scalingModifier = [];
 	this.crashed = false;
 	this.speedUp = false;
 
@@ -58,12 +57,12 @@ ocargo.Animation = function(model, decor, numVans) {
     ocargo.drawing.clearPaper();
     ocargo.drawing.renderMap(this.model.map);
     ocargo.drawing.renderDecor(this.decor);
-    ocargo.drawing.renderVans(this.model.map.getStartingPosition(), this.numVans);
-    ocargo.drawing.renderOrigin(this.model.map.getStartingPosition());
+    ocargo.drawing.renderOrigin(this.model.map.startingPosition());
     ocargo.drawing.renderDestinations(this.model.map.getDestinations());
     ocargo.drawing.renderTrafficLights(this.model.trafficLights);
-	this.updateFuelGauge(100);
-	this.resetAnimation(); // make sure animation is initialized correctly
+	ocargo.drawing.renderCharacter();
+
+     this.updateFuelGauge(100);
 };
 
 ocargo.Animation.prototype.isFinished = function() {
@@ -87,7 +86,7 @@ ocargo.Animation.prototype.resetAnimation = function() {
 	this.finished = false;
 	this.numberOfCowsOnMap = 0;
 	this.crashed = false;
-	this.effects = [];
+	this.scalingModifier = [];
 
 	// Reset the display
 	for(var i = 0; i < this.model.trafficLights.length; i++) {
@@ -102,12 +101,7 @@ ocargo.Animation.prototype.resetAnimation = function() {
 		ocargo.drawing.transitionDestination(destination.id, false, 0);
 	}
 
-	for(var i = 0; i < THREADS; i++) {
-		ocargo.drawing.skipOutstandingVanAnimationsToEnd(i);
-		ocargo.drawing.setVanImagePosition(this.model.map.getStartingPosition(), i);
-	}
-
-	ocargo.drawing.removeWreckageImages();
+	ocargo.drawing.reset();
 };
 
 ocargo.Animation.prototype.resetAnimationLength = function() {
@@ -218,57 +212,53 @@ ocargo.Animation.prototype.performAnimation = function(animation) {
 			animation.functionCall();
 			break;
 		case 'van':
-			// Set all current animations to the final position, so we don't get out of sync
-			var vanID = animation.id;
-			ocargo.drawing.skipOutstandingVanAnimationsToEnd(vanID);
-            ocargo.drawing.scrollToShowVan(vanID);
+            ocargo.drawing.scrollToShowCharacter();
 
             // move van
             switch (animation.vanAction) {
             	case 'FORWARD':
-            		ocargo.drawing.moveForward(vanID, animationLength, null, this.effects.shift());
+            		ocargo.drawing.moveForward(animationLength, null, this.scalingModifier.shift());
             		break;
             	case 'TURN_LEFT':
-            		ocargo.drawing.moveLeft(vanID, animationLength, null, this.effects.shift());
+            		ocargo.drawing.moveLeft(animationLength, null, this.scalingModifier.shift());
             		break;
             	case 'TURN_RIGHT':
-            		ocargo.drawing.moveRight(vanID, animationLength, null, this.effects.shift());
+            		ocargo.drawing.moveRight(animationLength, null, this.scalingModifier.shift());
             		break;
             	case 'TURN_AROUND_FORWARD':
             		animationLength *= 3;
-            		ocargo.drawing.turnAround(vanID, 'FORWARD', animationLength);
+            		ocargo.drawing.turnAround('FORWARD', animationLength);
             		break;
             	case 'TURN_AROUND_RIGHT':
             		animationLength *= 3;
-            		ocargo.drawing.turnAround(vanID, 'RIGHT', animationLength);
+            		ocargo.drawing.turnAround('RIGHT', animationLength);
             		break;
             	case 'TURN_AROUND_LEFT':
             		animationLength *= 3;
-            		ocargo.drawing.turnAround(vanID, 'LEFT', animationLength);
+            		ocargo.drawing.turnAround('LEFT', animationLength);
             		break;
             	case 'WAIT':
-            		ocargo.drawing.wait(vanID, animationLength);
+            		ocargo.drawing.wait(animationLength);
             		break;
 				case 'PUFFUP':
-					this.effects.push(2);
+					this.scalingModifier.push(2);
 					break;
                 case 'REMAINPUFFUP':
-                    this.effects.unshift(1);
+                    this.scalingModifier.unshift(1);
                     break;
                 case 'PUFFDOWN':
-					this.effects.push(0.5);
+					this.scalingModifier.push(0.5);
                     break;
             	case 'CRASH':
 					this.crashed = true;
-            		ocargo.drawing.crash(vanID, animationLength, animation.previousNode, animation.currentNode,
+            		ocargo.drawing.crash(animationLength, animation.previousNode, animation.currentNode,
             			animation.attemptedAction, animation.startNode);
                     animationLength += 100;
             		break;
 				case 'COLLISION_WITH_COW':
 					this.crashed = true;
 					//Update animationLength with time van moves before crashing
-					animationLength = ocargo.drawing.collisionWithCow(vanID, animationLength, animation.previousNode, animation.currentNode,
-						animation.attemptedAction, animation.startNode);
+					animationLength = ocargo.drawing.collisionWithCow(animationLength, animation.previousNode, animation.currentNode, animation.attemptedAction, animation.startNode);
 					break;
             	case 'DELIVER':
             		ocargo.drawing.deliver(animation.destinationID, animationLength);
@@ -317,9 +307,9 @@ ocargo.Animation.prototype.performAnimation = function(animation) {
 					} else {
 						// If there exists next level, add animation button which redirects the user to that
 						if (NEXT_LEVEL) {
-							buttons += ocargo.button.redirectButtonHtml('next_level_button', '/rapidrouter/' + NEXT_LEVEL + '/',
-					        								     		'Next Level');
-					    } else {
+							buttons += ocargo.button.redirectButtonHtml('next_level_button', "/rapidrouter/" + NEXT_LEVEL + "/",
+								'Next Level');
+						} else {
 							/*
 							 This is the last level of the episode. If there exists animation next episode, add button to
 							 redirect user to it or level selection page.
@@ -328,8 +318,8 @@ ocargo.Animation.prototype.performAnimation = function(animation) {
 							 selection page.
 							 */
 
-					        if (NEXT_EPISODE) {
-					            levelMsg.push(ocargo.messages.nextEpisode(NEXT_EPISODE, RANDOM));
+							if (NEXT_EPISODE) {
+								levelMsg.push(ocargo.messages.nextEpisode(NEXT_EPISODE, RANDOM));
 								buttons += ocargo.jsElements.nextEpisodeButton(NEXT_EPISODE, RANDOM);
 					        } else if(DEFAULT_LEVEL) {
 					            levelMsg.push(ocargo.messages.lastLevel);
@@ -394,7 +384,7 @@ ocargo.Animation.prototype._extractCowAt = function(coordinate) {
             return cow;
         }
     }
-}
+};
 
 ocargo.Animation.prototype.updateFuelGauge = function(fuelPercentage) {
     var degrees = ((fuelPercentage / 100) * 240) - 120;
@@ -452,4 +442,4 @@ ocargo.Animation.prototype.serializeAnimationQueue = function(blocks){
         webkit.messageHandlers.handler.postMessage(json);
     }
 	return json;
-}
+};

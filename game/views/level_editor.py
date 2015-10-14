@@ -98,6 +98,11 @@ def play_anonymous_level(request, levelID, from_level_editor=True, random_level=
     background = getDecorElement('tile1', level.theme).url
     character = level.character
 
+    character_url = character.top_down
+    character_width = character.width
+    character_height = character.height
+    wreckage_url = 'van_wreckage.svg'
+
     decor_data = level_management.get_decor(level)
     block_data = level_management.get_blocks(level)
 
@@ -114,6 +119,12 @@ def play_anonymous_level(request, levelID, from_level_editor=True, random_level=
         'attempt': attempt,
         'random_level': random_level,
         'return_url': '/rapidrouter/' + ('level_editor' if from_level_editor else ''),
+        'character_url': character_url,
+        'character_width': character_width,
+        'character_height': character_height,
+        'wreckage_url': wreckage_url,
+        'night_mode': 'false',
+        'night_mode_feature_enabled': 'false',
     })
 
     level.delete()
@@ -208,11 +219,12 @@ def generate_random_map_for_editor(request):
     branchiness = float(request.GET['branchiness'])
     loopiness = float(request.GET['loopiness'])
     curviness = float(request.GET['curviness'])
-    traffic_lights = request.GET['trafficLights'] == 'true'
-    scenery = request.GET['scenery'] == 'true'
+    traffic_lights = request.GET.get('trafficLights', 'false') == 'true'
+    scenery = request.GET.get('scenery', 'false') == 'true'
+    cows = request.GET.get('cows', 'false') == 'true'
 
     data = random_road.generate_random_map_data(size, branchiness, loopiness, curviness,
-                                                traffic_lights, scenery)
+                                                traffic_lights, scenery, cows)
 
     return HttpResponse(json.dumps(data), content_type='application/javascript')
 

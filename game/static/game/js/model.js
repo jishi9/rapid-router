@@ -39,9 +39,9 @@ identified as the original program.
 
 var ocargo = ocargo || {};
 
-ocargo.Model = function(nodeData, origin, destinations, trafficLightData, cowData, maxFuel, vanId) {
+ocargo.Model = function(nodeData, origin, destinations, trafficLightData, cowData, maxFuel) {
     this.map = new ocargo.Map(nodeData, origin, destinations);
-    this.van = new ocargo.Van(this.map.getStartingPosition(), maxFuel);
+    this.van = new ocargo.Van(this.map.startingPosition(), maxFuel);
 
     this.trafficLights = [];
     for(var i = 0; i < trafficLightData.length; i++) {
@@ -54,8 +54,7 @@ ocargo.Model = function(nodeData, origin, destinations, trafficLightData, cowDat
     }
 
     this.timestamp = 0;
-
-    this.vanId = vanId || 0;
+    this.movementTimestamp = 0;
 
     this.pathFinder = new ocargo.PathFinder(this);
     this.reasonForTermination = null;
@@ -69,7 +68,7 @@ ocargo.Model = function(nodeData, origin, destinations, trafficLightData, cowDat
 };
 
 // Resets the entire model to how it was when it was just constructed
-ocargo.Model.prototype.reset = function(vanId) {
+ocargo.Model.prototype.reset = function() {
     this.van.reset();
 
     var destinations = this.map.getDestinations();
@@ -90,13 +89,10 @@ ocargo.Model.prototype.reset = function(vanId) {
     this.setCowsActive(node);
 
     this.timestamp = 0;
+    this.movementTimestamp = 0;
     this.reasonForTermination  =  null;
     this.soundedHorn = {};
     this.puffedUp = {};
-
-    if (vanId !== null && vanId !== undefined) {
-        this.vanId = vanId;
-    }
 };
 
 // Randomly chooses the cow positions, called by program.js
@@ -114,7 +110,6 @@ ocargo.Model.prototype.observe = function(desc) {
     if (this.shouldObserve) {
         ocargo.animation.appendAnimation({
             type: 'van',
-            id: this.vanId,
             vanAction: 'OBSERVE',
             fuel: this.van.getFuelPercentage(),
             description: 'van observe: ' + desc
@@ -217,7 +212,6 @@ ocargo.Model.prototype.moveVan = function(nextNode, action) {
 
         ocargo.animation.appendAnimation({
             type: 'popup',
-            id: this.vanId,
             popupType: 'FAIL',
             failSubtype: 'OUT_OF_FUEL',
             popupMessage: ocargo.messages.outOfFuel,
@@ -254,7 +248,6 @@ ocargo.Model.prototype.moveVan = function(nextNode, action) {
 
         ocargo.animation.appendAnimation({
             type: 'popup',
-            id: this.vanId,
             popupType: 'FAIL',
             failSubtype: 'THROUGH_RED_LIGHT',
             popupMessage: ocargo.messages.throughRedLight,
@@ -288,13 +281,12 @@ ocargo.Model.prototype.moveVan = function(nextNode, action) {
     // Van movement animation
     ocargo.animation.appendAnimation({
         type: 'van',
-        id: this.vanId,
         vanAction: action,
         fuel: this.van.getFuelPercentage(),
         description: 'van move action: ' + action
     });
 
-    this.incrementTime();
+    this.incrementMovementTime();
 
     return true;
 
@@ -304,7 +296,6 @@ ocargo.Model.prototype.moveVan = function(nextNode, action) {
 
         ocargo.animation.appendAnimation({
             type: 'van',
-            id: model.vanId,
             vanAction: vanAction,
             previousNode: model.van.getPosition().previousNode,
             currentNode: model.van.getPosition().currentNode,
@@ -314,7 +305,7 @@ ocargo.Model.prototype.moveVan = function(nextNode, action) {
             description: actionDescription + action
         });
 
-        model.incrementTime();
+        model.incrementMovementTime();
 
         ocargo.animation.appendAnimation({
             type: 'callable',
@@ -334,7 +325,6 @@ ocargo.Model.prototype.moveVan = function(nextNode, action) {
 
         ocargo.animation.appendAnimation({
             type: 'popup',
-            id: model.vanId,
             popupType: 'FAIL',
             failSubtype: 'CRASH',
             popupMessage: popupMessage,
@@ -361,7 +351,6 @@ ocargo.Model.prototype.makeDelivery = function(destination) {
     destination.visited = true;
     ocargo.animation.appendAnimation({
         type: 'van',
-        id: this.vanId,
         destinationID: destination.id,
         vanAction: 'DELIVER',
         fuel: this.van.getFuelPercentage(),
@@ -375,7 +364,7 @@ ocargo.Model.prototype.makeDelivery = function(destination) {
         description: 'van sound: delivery'
     });
 
-    this.incrementTime();
+    this.incrementMovementTime();
 };
 
 ocargo.Model.prototype.moveForwards = function() {
@@ -422,7 +411,6 @@ ocargo.Model.prototype.deliver = function() {
             //fail if already visited
             ocargo.animation.appendAnimation({
                 type: 'popup',
-                id: this.vanId,
                 popupType: 'FAIL',
                 failSubtype: 'ALREADY_DELIVERED',
                 popupMessage: ocargo.messages.alreadyDelivered,
@@ -459,7 +447,7 @@ ocargo.Model.prototype.deliver = function() {
 };
 
 ocargo.Model.prototype.sound_horn = function() {
-    this.soundedHorn = {timestamp:this.timestamp, coordinates:this.getCurrentCoordinate()};
+    this.soundedHorn = {timestamp:this.movementTimestamp, coordinates:this.getCurrentCoordinate()};
     ocargo.animation.appendAnimation({
         type: 'callable',
         functionType: 'playSound',
@@ -470,26 +458,14 @@ ocargo.Model.prototype.sound_horn = function() {
     return true;
 };
 
-ocargo.Model.prototype.stop_horn = function() {
-    ocargo.animation.appendAnimation({
-        type: 'callable',
-        functionType: 'playSound',
-        functionCall: ocargo.sound.stop_horn,
-        description: 'van sound: stop sounding the horn'
-    });
-
-    return true;
-};
-
 ocargo.Model.prototype.puff_up = function(){
     if(!jQuery.isEmptyObject(this.puffedUp)){
         return this.remain_puff_up();
     }else{
-        this.puffedUp = {timestamp:this.timestamp, coordinates:this.getCurrentCoordinate(), timeout:1};
-
+        this.van.puffUp();
+        this.puffedUp = {timestamp:this.movementTimestamp, coordinates:this.getCurrentCoordinate(), timeout:1};
         ocargo.animation.appendAnimation({
             type: 'van',
-            id: this.vanId,
             vanAction: 'PUFFUP',
             fuel: this.van.getFuelPercentage(),
             description: 'van move action: puff up'
@@ -505,7 +481,6 @@ ocargo.Model.prototype.remain_puff_up = function(){
 
     ocargo.animation.appendAnimation({
         type: 'van',
-        id: this.vanId,
         vanAction: 'REMAINPUFFUP',
         fuel: this.van.getFuelPercentage(),
         description: 'van move action: remain puff up'
@@ -518,59 +493,62 @@ ocargo.Model.prototype.puff_down = function(){
 
     ocargo.animation.appendAnimation({
         type: 'van',
-        id: this.vanId,
         vanAction: 'PUFFDOWN',
         fuel: this.van.getFuelPercentage(),
         description: 'van move action: puff down'
     });
 
-    //this.incrementTime();
     return true;
 };
 
 // Signal that the program has ended and we should calculate whether
 // the play has won or not and send off those events
-ocargo.Model.prototype.programExecutionEnded = function() {
+ocargo.Model.prototype.programExecutionEnded = function () {
     var success;
     var destinations = this.map.getDestinations();
     var failType = 'OUT_OF_INSTRUCTIONS';
     var failMessage = ocargo.messages.outOfInstructions;
 
-    if(destinations.length === 1) {
+    if (destinations.length === 1) {
         // If there's only one destination, check that the car stopped on the destination node
         success = this.van.getPosition().currentNode === destinations[0].node;
 
-        if(success) {
+        if (success) {
             ocargo.animation.appendAnimation({
                 type: 'van',
-                id: this.vanId,
                 destinationID: destinations[0].id,
                 vanAction: 'DELIVER',
                 fuel: this.van.getFuelPercentage(),
                 description: 'van delivering'
             });
         } else {
-            if($.inArray(destinations[0].node, this.van.visitedNodes) != -1 ) {
+            if ($.inArray(destinations[0].node, this.van.visitedNodes) != -1) {
                 failMessage = ocargo.messages.passedDestination;
             }
         }
-    }
-    else {
+    } else {
         // Checks whether all the destinations have been delivered
         success = true;
-        for(var i = 0; i < destinations.length; i++) {
+        for (var i = 0; i < destinations.length; i++) {
             success &= destinations[i].visited;
         }
-        if(!success){
+        if (!success) {
             failType = 'UNDELIVERED_DESTINATIONS';
             failMessage = ocargo.messages.undeliveredDestinations;
 
-            ocargo.event.sendEvent("LevelUndeliveredDestinations", { levelName: LEVEL_NAME,
-                                                                     defaultLevel: DEFAULT_LEVEL,
-                                                                     workspace: ocargo.blocklyControl.serialize(),
-                                                                     failures: this.failures,
-                                                                     pythonWorkspace: ocargo.pythonControl.getCode() });
+            ocargo.event.sendEvent("LevelUndeliveredDestinations", {
+                levelName: LEVEL_NAME,
+                defaultLevel: DEFAULT_LEVEL,
+                workspace: ocargo.blocklyControl.serialize(),
+                failures: this.failures,
+                pythonWorkspace: ocargo.pythonControl.getCode()
+            });
         }
+    }
+
+    // check for disconnected start block
+    if (ocargo.blocklyControl.disconnectedStartBlock()) {
+        failMessage = ocargo.messages.disconnectedStartBlock;
     }
 
     ocargo.animation.appendAnimation({
@@ -580,20 +558,19 @@ ocargo.Model.prototype.programExecutionEnded = function() {
         description: 'stopping engine'
     });
 
-    if(success) {
+    if (success) {
         var result = this.pathFinder.getScore();
         ocargo.game.sendAttempt(result.totalScore);
 
         // Winning popup
         ocargo.animation.appendAnimation({
             type: 'popup',
-            id: this.vanId,
             popupType: 'WIN',
-            popupMessage:result.popupMessage,
+            popupMessage: result.popupMessage,
             totalScore: result.totalScore,
             maxScore: result.maxScore,
-            routeCoins : result.routeCoins,
-            instrCoins : result.instrCoins,
+            routeCoins: result.routeCoins,
+            instrCoins: result.instrCoins,
             pathLengthScore: result.pathLengthScore,
             maxScoreForPathLength: result.maxScoreForPathLength,
             instrScore: result.instrScore,
@@ -611,22 +588,22 @@ ocargo.Model.prototype.programExecutionEnded = function() {
             description: 'win sound'
         });
 
-        ocargo.event.sendEvent("LevelSuccess", { levelName: LEVEL_NAME,
-                                                 defaultLevel: DEFAULT_LEVEL,
-                                                 workspace: ocargo.blocklyControl.serialize(),
-                                                 failures: this.failures,
-                                                 pythonWorkspace: ocargo.pythonControl.getCode(),
-                                                 score: result.totalScore });
+        ocargo.event.sendEvent("LevelSuccess", {
+            levelName: LEVEL_NAME,
+            defaultLevel: DEFAULT_LEVEL,
+            workspace: ocargo.blocklyControl.serialize(),
+            failures: this.failures,
+            pythonWorkspace: ocargo.pythonControl.getCode(),
+            score: result.totalScore
+        });
 
         this.reasonForTermination = 'SUCCESS';
-    }
-    else {
+    } else {
         ocargo.game.sendAttempt(0);
 
         // Failure popup
         ocargo.animation.appendAnimation({
             type: 'popup',
-            id: this.vanId,
             popupType: 'FAIL',
             failSubtype: failType,
             popupMessage: failMessage,
@@ -642,11 +619,13 @@ ocargo.Model.prototype.programExecutionEnded = function() {
             description: 'failure sound'
         });
 
-        ocargo.event.sendEvent("LevelFailure", { levelName: LEVEL_NAME,
-                                                 defaultLevel: DEFAULT_LEVEL,
-                                                 workspace: ocargo.blocklyControl.serialize(),
-                                                 failures: this.failures,
-                                                 pythonWorkspace: ocargo.pythonControl.getCode() });
+        ocargo.event.sendEvent("LevelFailure", {
+            levelName: LEVEL_NAME,
+            defaultLevel: DEFAULT_LEVEL,
+            workspace: ocargo.blocklyControl.serialize(),
+            failures: this.failures,
+            pythonWorkspace: ocargo.pythonControl.getCode()
+        });
 
         this.reasonForTermination = failType;
     }
@@ -686,6 +665,12 @@ ocargo.Model.prototype.getCowForNode = function(node, status) {
     return null;
 };
 
+ocargo.Model.prototype.incrementMovementTime = function(){
+    this.movementTimestamp ++;
+    this.incrementTrafficLightsTime();
+    this.incrementTime();
+};
+
 // Helper functions which handles telling all parts of the model
 // that time has incremented and they should generate events
 ocargo.Model.prototype.incrementTime = function() {
@@ -693,15 +678,19 @@ ocargo.Model.prototype.incrementTime = function() {
 
     ocargo.animation.startNewTimestamp();
 
-    for (var i = 0; i < this.trafficLights.length; i++) {
-        this.trafficLights[i].incrementTime(this);
-    }
     this.incrementCowTime();
 };
 
+ocargo.Model.prototype.incrementTrafficLightsTime = function() {
+    for (var i = 0; i < this.trafficLights.length; i++) {
+        this.trafficLights[i].incrementTime(this);
+    }
+}
+
 ocargo.Model.prototype.incrementCowTime = function() {
-    if(this.timestamp - this.puffedUp.timestamp > this.puffedUp.timeout){
+    if(this.movementTimestamp - this.puffedUp.timestamp > this.puffedUp.timeout){
         this.puffedUp = {};
+        this.van.puffDown();
     };
 
     for (var i = 0; i < this.cows.length; i++) {
@@ -720,3 +709,8 @@ ocargo.Model.prototype.getNodesAhead = function(node) {
     }
     return nodes;
 };
+
+ocargo.Model.prototype.startingPosition = function() {
+    return this.map.startingPosition();
+}
+

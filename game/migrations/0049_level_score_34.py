@@ -40,9 +40,9 @@ import json
 
 def update_level(apps, schema_editor):
     Level = apps.get_model('game', 'Level')
-    level34 = Level.objects.get(name='34', default=1)
-    level34.model_solution = '[8,7,6]'
-    level34.save()
+    level = Level.objects.get(name='34', default=1)
+    level.model_solution = '[8,7,6]'
+    level.save()
 
 
 class Migration(migrations.Migration):

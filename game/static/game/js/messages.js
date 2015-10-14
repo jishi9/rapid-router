@@ -54,35 +54,38 @@ ocargo.jsElements = {
 
 //FIXME: actually use Django's internationalisation framework.
 ocargo.messages = {
+
     nextEpisode: function(episode, random) {
         return "Well done, you've completed the episode! <br> Are you ready for the next " +
             "challenge? " + (random ? "Or try one of this episode's random levels!" : "") ;
     },
 
     anotherRandomLevel: "Do you want to try another random level?",
+    nightMode: "In Night Mode you can only see a very short distance. " +
+            "We've given you more blocks to help you find your way!",
     loggedOutWarning: "You are not logged in. Your progress won't be saved.",
     nowTryPython: "Looks like you've got a route sorted using Blockly.<br><br>" +
         "Now go to the Python tab and see if you can do the same in Python! ",
     lastLevel: "That's all we've got for you right now. Carry on the fun by creating your own challenges.",
 
     illegalBlocks: "Sorry, this workspace has blocks in it that aren't allowed in this level!",
-    tooManyBlocks: "Whoops! You used too many blocks.",
+    tooManyBlocks: "Whoops. You used too many blocks.",
     ohNo: "Oh no!",
     winTitle: "You win!",
     failTitle: "Oh dear! ",
     tryagainLabel: "Try again",
     needHint: "Are you stuck? Do you need help?",
-    terminated: "Program terminated!",
-    crashed: "Your program crashed!",
+    terminated: "Program terminated.",
+    crashed: "Your program crashed.",
     queryInfiniteLoop: "It looks as though your program's been running a while. Check your repeat loops are okay.",
     compilationError: "Your program doesn't look quite right...",
     stoppingTitle: "Stopping...",
     errorTitle: "Error",
 
     outOfFuel : "You ran out of fuel! Try to find a shorter route to the destination.",
-    outOfInstructions: "The van ran out of instructions before it reached a destination. <br><br>" +
-      "Make sure your blocks are connected to the Start block, and that " +
-      "there are enough instructions to complete the delivery.",
+    outOfInstructions: "The van ran out of instructions before it reached a destination. "  +
+      "Make sure there are enough instructions to complete the delivery.",
+    disconnectedStartBlock: "Make sure your blocks are connected to the Start block.",
     passedDestination: "The van visited the destination, but didn't stop there!",
     throughRedLight: "Uh oh, you just sent the van through a red light! Stick to the Highway " +
         "Code - the van must wait for green.",

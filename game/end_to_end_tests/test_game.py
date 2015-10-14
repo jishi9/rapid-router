@@ -34,18 +34,10 @@
 # copyright notice and these terms. You must not misrepresent the origins of this
 # program; modified versions of the program must be marked as such and not
 # identified as the original program.
-import os
+from game.end_to_end_tests.base_game_test import BaseGameTest
 
-from portal.models import UserProfile
-from game.models import Workspace
-from portal.tests.base_test import BaseTest
-from portal.tests.utils.organisation import create_organisation_directly
-from portal.tests.utils.teacher import signup_teacher_directly
 
-class TestGame(BaseTest):
-
-    already_logged_on = False
-
+class TestGame(BaseGameTest):
     def test_level1(self):
         self.run_level_test(1)
 
@@ -181,48 +173,54 @@ class TestGame(BaseTest):
     def test_level45(self):
         self.run_level_test(45)
 
-    def run_level_test(self, level):
-        user_profile = self.login_once()
+    def test_level46(self):
+        self.run_level_test(46)
 
-        workspace_id = self.persist_workspace(level, user_profile)
+    def test_level47(self):
+        self.run_level_test(47)
 
-        self .go_to_level(level) \
-            .load_solution(workspace_id) \
-            .run_program() \
-            .assert_route_score("10/10") \
-            .assert_algorithm_score("10/10")
+    def test_level48(self):
+        self.run_level_test(48)
 
-    def persist_workspace(self, level, user_profile):
-        solution = self.read_solution(level)
-        workspace_name = "Level " + str(level)
-        workspace_id = Workspace.objects.create(name=workspace_name, owner=user_profile, contents=solution).id
-        return workspace_id
+    def test_level49(self):
+        self.run_level_test(49)
 
-    def login_once(self):
-        if not TestGame.already_logged_on:
-            email, password = signup_teacher_directly()
-            create_organisation_directly(email)
-            self.go_to_homepage().go_to_teach_page().login(email, password)
-            email = email
-            TestGame.user_profile = UserProfile.objects.get(user__email=email)
+    def test_level50(self):
+        self.run_level_test(50)
 
-            TestGame.already_logged_on = True
+    #
+    # Add levels 51-52
+    #
 
-        return TestGame.user_profile
+    def test_level53(self):
+        self.run_level_test(53)
 
-    BLOCKLY_SOLUTIONS_DIR = os.path.join(os.path.dirname(__file__), 'data/blockly_solutions')
+    #
+    # Add levels 54-68
+    #
 
-    def datafile(self, filename):
-        return os.path.join(TestGame.BLOCKLY_SOLUTIONS_DIR, filename)
+    def test_level69(self):
+        self.run_level_test(69, route_score=None)
 
-    def read_solution(self, level):
-        filename = self.datafile("level_" + str(level) + ".xml")
-        if filename:
-            f = open(filename, 'r')
-            data = f.read()
-            f.close()
+    def test_level70(self):
+        self.run_level_test(70, route_score=None)
 
-        return data
+    #
+    # Add levels 71-72
+    #
 
-    def _fixture_teardown(self):
-        pass
+    def test_level73(self):
+        self.run_level_test(73)
+
+    def test_level74(self):
+        self.run_level_test(74, route_score=None)
+
+    #
+    # Add level 75
+    #
+
+    def test_level76(self):
+        self.run_level_test(76, route_score=None)
+
+    def test_level77(self):
+        self.run_level_test(77, route_score=None)
