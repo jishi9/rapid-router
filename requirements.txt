@@ -13,6 +13,9 @@ six==1.9.0
 docutils==0.12
 Pillow==2.8.2
 
+# FE toolchain
+django-require==1.0.8
+
 # Test
 django-casper==0.0.3
 unittest2==1.0.1
