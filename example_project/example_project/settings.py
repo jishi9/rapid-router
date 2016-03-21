@@ -68,6 +68,10 @@ INSTALLED_APPS = (
 
 PIPELINE_ENABLED = False
 
+LOCALE_PATHS = [
+    os.path.join(os.path.dirname(__file__), '../../game/locale')
+]
+
 try:
     from example_project.local_settings import * # pylint: disable=E0611
 except ImportError:
